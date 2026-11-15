@@ -4,10 +4,12 @@ from discord.ext import commands, tasks
 from espn_api.football import League
 import datetime
 import asyncio
+from zoneinfo import ZoneInfo
 
 # ==============================================================================
 # 1. INITIALIZE ESPN LEAGUE CONNECTION
 # ==============================================================================
+NEW_YORK_TZ = ZoneInfo("America/New_York")
 LEAGUE_ID = 1031098906
 YEAR = 2026          
 ESPN_S2 = os.environ["ESPN_S2"]
@@ -137,8 +139,8 @@ async def custom_help(ctx):
     response += "🔍 **`!waivers`**\n"
     response += "↳ *Scans the waiver wire and highlights top available free agents.*\n\n"
 
-    response += "🏅 **`!seasonawards`**\n"
-    response += "↳ *Calculates running season superlatives (High/Low scores, Bench points, Injuries, and more).*\n\n"
+    response += "🏅 **`!seasonawards [week]`**\n"
+    response += "↳ *Calculates season superlatives through the latest completed week, or a selected completed week.*\n\n"
     
     response += "📅 *Note: Automated league recaps post every Tuesday at 8:00 AM through the Week 14 Championship!*"
     
@@ -162,6 +164,7 @@ def generate_season_awards(max_week=14):
     biggest_margin = -1.0
     blowout_info = "N/A"
 
+    team_scores = {}
     bench_points = {}
     injury_weeks = {}
 
@@ -184,6 +187,12 @@ def generate_season_awards(max_week=14):
             ):
                 home_name = getattr(home_team, "team_name", "Unknown")
                 away_name = getattr(away_team, "team_name", "Unknown")
+                home_totals = team_scores.setdefault(home_name, [0.0, 0.0])
+                away_totals = team_scores.setdefault(away_name, [0.0, 0.0])
+                home_totals[0] += home_score
+                home_totals[1] += away_score
+                away_totals[0] += away_score
+                away_totals[1] += home_score
 
                 for name, score in (
                     (home_name, home_score),
@@ -202,22 +211,29 @@ def generate_season_awards(max_week=14):
                         )
 
                 margin = abs(home_score - away_score)
-                winner = home_name if home_score > away_score else away_name
-                loser = away_name if home_score > away_score else home_name
                 winning_score = max(home_score, away_score)
                 losing_score = min(home_score, away_score)
 
-                matchup_text = (
-                    f"**{winner}** over **{loser}** "
-                    f"({winning_score:.2f} - {losing_score:.2f}, "
-                    f"margin: {margin:.2f} in Week {week})"
-                )
+                if home_score == away_score:
+                    matchup_text = (
+                        f"**{home_name}** tied **{away_name}** "
+                        f"({home_score:.2f} - {away_score:.2f}, "
+                        f"in Week {week})"
+                    )
+                else:
+                    winner = home_name if home_score > away_score else away_name
+                    loser = away_name if home_score > away_score else home_name
+                    matchup_text = (
+                        f"**{winner}** over **{loser}** "
+                        f"({winning_score:.2f} - {losing_score:.2f}, "
+                        f"margin: {margin:.2f} in Week {week})"
+                    )
 
                 if margin < closest_margin:
                     closest_margin = margin
                     closest_info = matchup_text
 
-                if margin > biggest_margin:
+                if margin > biggest_margin and margin > 0:
                     biggest_margin = margin
                     blowout_info = matchup_text
 
@@ -245,17 +261,13 @@ def generate_season_awards(max_week=14):
                     if status in ("OUT", "INJURY_RESERVE") or slot == "IR":
                         injury_weeks[team_name] += 1
 
-    valid_teams = [team for team in league.teams if team is not None]
-
     scoring_champ = (
-        max(valid_teams, key=lambda team: getattr(team, "points_for", 0.0))
-        if valid_teams
-        else None
+        max(team_scores, key=lambda name: team_scores[name][0])
+        if team_scores else None
     )
     punching_bag = (
-        max(valid_teams, key=lambda team: getattr(team, "points_against", 0.0))
-        if valid_teams
-        else None
+        max(team_scores, key=lambda name: team_scores[name][1])
+        if team_scores else None
     )
 
     unforeseen_team = (
@@ -274,24 +286,29 @@ def generate_season_awards(max_week=14):
     awards_text += f"🎯 **Closest Matchup:** {closest_info}\n"
     awards_text += f"💥 **Blowout of the Year:** {blowout_info}\n"
 
-    if scoring_champ:
+    if scoring_champ is not None:
         awards_text += (
             f"🔥 **Scoring Champ (Highest PF):** "
-            f"{scoring_champ.team_name} ({scoring_champ.points_for:.2f} pts)\n"
+            f"{scoring_champ} ({team_scores[scoring_champ][0]:.2f} pts)\n"
         )
+    else:
+        awards_text += "🔥 **Scoring Champ (Highest PF):** N/A\n"
 
-    if punching_bag:
+    if punching_bag is not None:
         awards_text += (
             f"🛡️ **Punching Bag (Highest PA):** "
-            f"{punching_bag.team_name} "
-            f"({punching_bag.points_against:.2f} pts)\n"
+            f"{punching_bag} ({team_scores[punching_bag][1]:.2f} pts)\n"
         )
+    else:
+        awards_text += "🛡️ **Punching Bag (Highest PA):** N/A\n"
 
     if bench_points:
         awards_text += (
             f"🔮 **Unforeseen (Points Left on Bench):** "
             f"{unforeseen_team} ({bench_points[unforeseen_team]:.2f} pts)\n"
         )
+    else:
+        awards_text += "🔮 **Unforeseen (Points Left on Bench):** N/A\n"
 
     if injury_weeks:
         awards_text += (
@@ -299,19 +316,38 @@ def generate_season_awards(max_week=14):
             f"{hospital_team} "
             f"({injury_weeks[hospital_team]} player-weeks)\n"
         )
+    else:
+        awards_text += "🏥 **Hospital Ward (Injuries / Out / IR):** N/A\n"
 
     return awards_text
 
 
 @bot.command(name="seasonawards")
-async def season_awards_cmd(ctx):
-    """Displays seasonal superlatives across completed weeks."""
+async def season_awards_cmd(ctx, through_week: int = None):
+    """Displays seasonal superlatives through the latest or a selected week."""
     try:
+        last_completed_week = min(league.current_week - 1, 14)
+        if through_week is not None:
+            if not 1 <= through_week <= 14:
+                await ctx.send("Choose a week between 1 and 14.")
+                return
+            if through_week > last_completed_week:
+                if last_completed_week < 1:
+                    await ctx.send("There are no completed weeks to calculate yet.")
+                else:
+                    await ctx.send(
+                        f"Week {through_week} is not completed yet. "
+                        f"ESPN data is available through Week {last_completed_week}."
+                    )
+                return
+
         await ctx.send(
             "⏳ Crunching the seasonal awards across completed weeks. "
             "Give me a few seconds!"
         )
-        awards_output = generate_season_awards()
+        awards_output = generate_season_awards(
+            max_week=through_week if through_week is not None else 14
+        )
         await ctx.send(awards_output)
     except Exception as e:
         await ctx.send("Failed to calculate seasonal awards. Check bot logs.")
@@ -439,9 +475,9 @@ def generate_recap_text(prefix_message="", target_week=None):
 
 @tasks.loop(seconds=60)
 async def tuesday_recap():
-    now = datetime.datetime.now()
+    now = datetime.datetime.now(NEW_YORK_TZ)
 
-    # Triggers every Tuesday at 8:00 AM.
+    # Triggers every Tuesday at 8:00 AM America/New_York, including DST changes.
     if now.weekday() == 1 and now.hour == 8 and now.minute == 0:
         previous_week = league.current_week - 1 if league.current_week > 1 else 1
 
