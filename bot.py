@@ -167,9 +167,16 @@ def generate_season_awards(max_week=14):
     team_scores = {}
     bench_points = {}
     injury_weeks = {}
+    lineup_unavailable_weeks = []
 
     for week in range(1, last_completed_week + 1):
-        box_scores = league.box_scores(week)
+        try:
+            box_scores = league.box_scores(week)
+        except KeyError as error:
+            if error.args != ("rosterForCurrentScoringPeriod",):
+                raise
+            box_scores = league.scoreboard(week)
+            lineup_unavailable_weeks.append(week)
 
         for match in box_scores:
             if match is None:
@@ -281,6 +288,15 @@ def generate_season_awards(max_week=14):
         f"\n🏅 **2026 SEASONAL AWARDS "
         f"(Through Week {last_completed_week})** 🏅\n"
     )
+    if lineup_unavailable_weeks:
+        unavailable_weeks = ", ".join(
+            str(week) for week in lineup_unavailable_weeks
+        )
+        awards_text += (
+            f"⚠️ ESPN did not provide historical lineups for Week(s) "
+            f"{unavailable_weeks}; bench and injury totals exclude those weeks.\n"
+        )
+
     awards_text += f"👑 **Highest Single-Week Score:** {high_score_info}\n"
     awards_text += f"💩 **Lowest Single-Week Score:** {low_score_info}\n"
     awards_text += f"🎯 **Closest Matchup:** {closest_info}\n"
