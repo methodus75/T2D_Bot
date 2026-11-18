@@ -15,6 +15,9 @@ class FantasyCog(commands.Cog):
         self.bot = bot
         self.league = bot.league
 
+    def cog_unload(self):
+        self.tuesday_recap.cancel()
+
     @commands.command(name="standings")
     async def get_standings(self, ctx):
         """Fetches the current league standings."""
