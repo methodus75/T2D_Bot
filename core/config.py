@@ -1,0 +1,15 @@
+"""Configuration shared by the bot and its extensions."""
+
+import os
+from zoneinfo import ZoneInfo
+
+DISCORD_TOKEN = os.environ["DISCORD_TOKEN"]
+ESPN_S2 = os.environ["ESPN_S2"]
+SWID = os.environ["SWID"]
+
+LEAGUE_ID = 1031098906
+YEAR = 2026
+NEW_YORK_TZ = ZoneInfo("America/New_York")
+
+RECAP_CHANNEL_ID = 1552492353682415707
+RECAP_ROLE_ID = 1552492639796858942

@@ -83,11 +83,12 @@ Before implementing a feature, capture:
 
 ## Possible organization as the bot grows
 
-The bot is currently implemented in `bot.py`. There is no need to refactor
-before a second feature is selected. If several distinct features are added,
-organize them as separate Discord.py extensions or cogs (for example,
-fantasy, family events, polls, and games) so one feature stays easy to change
-without entangling the others.
+`bot.py` is the application entry point. Shared bot setup and configuration
+live in `core/`, ESPN integration and reusable fantasy calculations live in
+`services/`, and the current fantasy commands and Tuesday recap live in
+`cogs/fantasy.py`. Keep future distinct features in separate Discord.py
+extensions or cogs (for example, family events, polls, and games) so one
+feature stays easy to change without entangling the others.
 
 A separate bot may be preferable if a future feature needs substantially
 different permissions, data handling, or reliability requirements.
