@@ -495,10 +495,10 @@ async def tuesday_recap():
 
     # Triggers every Tuesday at 8:00 AM America/New_York, including DST changes.
     if now.weekday() == 1 and now.hour == 8 and now.minute == 0:
-        previous_week = league.current_week - 1 if league.current_week > 1 else 1
+        recap_week = league.current_week
 
         # Stop automated recaps once the Week 14 Championship is finished.
-        if previous_week > 14:
+        if recap_week > 14:
             return
 
         channel_id = 1552492353682415707
@@ -509,7 +509,7 @@ async def tuesday_recap():
                 prefix = "🏈 📢 Attention <@&1552492639796858942>!\n"
                 response = generate_recap_text(
                     prefix,
-                    target_week=previous_week,
+                    target_week=recap_week,
                 )
                 await channel.send(response)
                 await asyncio.sleep(60)
