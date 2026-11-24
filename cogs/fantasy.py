@@ -10,6 +10,11 @@ from core.config import NEW_YORK_TZ, RECAP_CHANNEL_ID, RECAP_ROLE_ID
 from services.fantasy import generate_recap_text, generate_season_awards
 
 
+def _completed_week(now: datetime.datetime) -> int:
+    season_anchor = datetime.date(2026, 9, 15)
+    return ((now.date() - season_anchor).days // 7) + 1
+
+
 class FantasyCog(commands.Cog):
     def __init__(self, bot: T2DBot):
         self.bot = bot
@@ -22,6 +27,7 @@ class FantasyCog(commands.Cog):
     async def get_standings(self, ctx):
         """Fetches the current league standings."""
         try:
+            self.league.refresh()
             standings = self.league.standings()
             
             response = "**🏆 Current League Standings 🏆**\n"
@@ -46,6 +52,7 @@ class FantasyCog(commands.Cog):
     async def get_matchups(self, ctx):
         """Fetches matchups and live scores for the current week."""
         try:
+            self.league.refresh()
             current_week = self.league.current_week
             
             try:
@@ -169,17 +176,17 @@ class FantasyCog(commands.Cog):
 
         # Triggers every Tuesday at 8:00 AM America/New_York, including DST changes.
         if now.weekday() == 1 and now.hour == 8 and now.minute == 0:
-            recap_week = self.league.current_week
+            try:
+                self.league.refresh()
+                recap_week = _completed_week(now)
 
-            # Stop automated recaps once the Week 14 Championship is finished.
-            if recap_week > 14:
-                return
+                # Stop automated recaps once the Week 14 Championship is finished.
+                if recap_week > 14:
+                    return
 
-            channel_id = RECAP_CHANNEL_ID
-            channel = self.bot.get_channel(channel_id)
-
-            if channel:
-                try:
+                channel_id = RECAP_CHANNEL_ID
+                channel = self.bot.get_channel(channel_id)
+                if channel:
                     prefix = f"🏈 📢 Attention <@&{RECAP_ROLE_ID}>!\n"
                     response = generate_recap_text(
                         self.league,
@@ -188,18 +195,23 @@ class FantasyCog(commands.Cog):
                     )
                     await channel.send(response)
                     await asyncio.sleep(60)
-                except Exception as e:
-                    print(f"Error executing Tuesday Recap task: {e}")
+            except Exception as e:
+                print(f"Error executing Tuesday Recap task: {e}")
 
     @commands.command(name="testrecap")
     async def test_recap(self, ctx, week: int = None):
         """Admin test command to preview a week's recap."""
         try:
+            self.league.refresh()
             await ctx.send("⚙️ Generating a live preview of the weekly recap...")
             response = generate_recap_text(
                 self.league,
                 "📊 [TEST PREVIEW]\n",
-                target_week=week,
+                target_week=(
+                    week
+                    if week is not None
+                    else _completed_week(datetime.datetime.now(NEW_YORK_TZ))
+                ),
             )
             await ctx.send(response)
         except Exception as e:
@@ -210,6 +222,13 @@ class FantasyCog(commands.Cog):
     @commands.has_permissions(administrator=True)
     async def force_recap(self, ctx):
         """Admin command to post the weekly recap."""
+        try:
+            self.league.refresh()
+        except Exception as e:
+            await ctx.send("Failed to refresh league data. Check bot logs.")
+            print(f"Error refreshing league for forcerecap: {e}")
+            return
+
         channel_id = RECAP_CHANNEL_ID
         channel = self.bot.get_channel(channel_id)
 
@@ -223,7 +242,11 @@ class FantasyCog(commands.Cog):
 
         try:
             prefix = f"🏈 📢 [LATE ENTRY] Attention <@&{RECAP_ROLE_ID}>!\n"
-            response = generate_recap_text(self.league, prefix)
+            response = generate_recap_text(
+                self.league,
+                prefix,
+                target_week=_completed_week(datetime.datetime.now(NEW_YORK_TZ)),
+            )
             await channel.send(response)
         except Exception as e:
             await ctx.send("Failed to execute force recap. Check bot logs.")
