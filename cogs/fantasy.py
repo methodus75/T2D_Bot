@@ -133,6 +133,12 @@ class FantasyCog(commands.Cog):
 
         response += "🏅 **`!seasonawards [week]`**\n"
         response += "↳ *Calculates season superlatives through the latest completed week, or a selected completed week.*\n\n"
+
+        response += "🎂 **`!bday setme <MM/DD>`**\n"
+        response += "↳ *Opt in to a birthday reminder or update your date.*\n\n"
+
+        response += "🎂 **`!bday removeme`**, **`!bday list`**, **`!bday test`**\n"
+        response += "↳ *Remove your entry, view upcoming birthdays, or preview today's reminder.*\n\n"
         
         response += "📅 *Note: Automated league recaps post every Tuesday at 8:00 AM through the Week 14 Championship!*"
         

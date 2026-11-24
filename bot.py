@@ -10,7 +10,6 @@ from services.espn import create_league
 async def main() -> None:
     bot = T2DBot(create_league())
     async with bot:
-        await bot.load_extension("cogs.fantasy")
         await bot.start(DISCORD_TOKEN)
 
 

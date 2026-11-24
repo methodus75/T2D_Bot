@@ -19,6 +19,9 @@ their own sake.
 - Commands: `!standings`, `!matchups`, `!waivers`, `!seasonawards [week]`,
   `!help`, `!testrecap`, and admin-only `!forcerecap`.
 - Automated weekly recap scheduled for Tuesday at 8:00 AM America/New_York.
+- Opt-in birthday reminders at 8:30 AM America/New_York, using the static
+  `#birthdays` channel as the source of truth; members can use `!bday` commands
+  to manage and preview entries.
 - Hosted on an Oracle Cloud Ubuntu server as the `t2dbot` systemd service.
 - Credentials are provided through a server-side environment file and should
   never be committed to GitHub.
@@ -54,8 +57,8 @@ their own sake.
 
 These are exploratory ideas, not a committed roadmap.
 
-- **Birthday and holiday reminders:** Automate reminders based on the existing
-  channels, with a privacy-conscious source of dates.
+- **Holiday reminders:** Automate reminders based on existing Discord content,
+  with a privacy-conscious source of dates.
 - **Wishlist helper:** Create a consistently formatted wishlist thread or
   provide a simple template, while leaving the wishlist content in Discord.
 - **Fantasy league polls:** Help create or manage polls for future league
