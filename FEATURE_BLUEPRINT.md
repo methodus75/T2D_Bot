@@ -16,12 +16,15 @@ their own sake.
 
 - Python Discord bot using `discord.py`, connected to an ESPN fantasy football
   league.
-- Commands: `!standings`, `!matchups`, `!waivers`, `!seasonawards [week]`,
-  `!help`, `!testrecap`, and admin-only `!forcerecap`.
+- General help (`!help`) lists family commands and points league members to
+  `!fantasyhelp` (also available as `!espnhelp`) for
+  `!standings`, `!matchups`, `!waivers`, and `!seasonawards [week]`.
+- Other commands: `!testrecap` and admin-only `!forcerecap`.
 - Automated weekly recap scheduled for Tuesday at 8:00 AM America/New_York.
 - Opt-in birthday reminders at 8:30 AM America/New_York, using the static
   `#birthdays` channel as the source of truth; members can use `!bday` commands
-  to manage and preview entries.
+  to manage and preview entries. Birthday names use server nicknames when the
+  member is available in the server.
 - Hosted on an Oracle Cloud Ubuntu server as the `t2dbot` systemd service.
 - Credentials are provided through a server-side environment file and should
   never be committed to GitHub.

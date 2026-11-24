@@ -116,8 +116,8 @@ class FantasyCog(commands.Cog):
             await ctx.send("Failed to retrieve waiver data.")
             print(f"Error in waivers: {e}")
 
-    @commands.command(name="help")
-    async def custom_help(self, ctx):
+    @commands.command(name="fantasyhelp", aliases=["espnhelp"])
+    async def fantasy_help(self, ctx):
         """Lists available fantasy football commands for league members."""
         response = "🏈 **ESPN Fantasy Football Bot Commands** 🏈\n"
         response += "Use the following commands to check league details:\n\n"
@@ -134,12 +134,6 @@ class FantasyCog(commands.Cog):
         response += "🏅 **`!seasonawards [week]`**\n"
         response += "↳ *Calculates season superlatives through the latest completed week, or a selected completed week.*\n\n"
 
-        response += "🎂 **`!bday setme <MM/DD>`**\n"
-        response += "↳ *Opt in to a birthday reminder or update your date.*\n\n"
-
-        response += "🎂 **`!bday removeme`**, **`!bday list`**, **`!bday test`**\n"
-        response += "↳ *Remove your entry, view upcoming birthdays, or preview today's reminder.*\n\n"
-        
         response += "📅 *Note: Automated league recaps post every Tuesday at 8:00 AM through the Week 14 Championship!*"
         
         await ctx.send(response)

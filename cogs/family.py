@@ -67,12 +67,13 @@ class FamilyCog(commands.Cog):
         member = guild.get_member(entry.user_id) if guild else None
         if member is not None:
             return member.display_name
-        if entry.name and not entry.name.startswith("<@"):
-            return entry.name
-
         user = self.bot.get_user(entry.user_id)
         if user is not None:
-            return getattr(user, "display_name", None) or user.name
+            display_name = getattr(user, "display_name", None) or user.name
+            if display_name:
+                return display_name
+        if entry.name and not entry.name.startswith("<@"):
+            return entry.name
         return f"Member {entry.user_id}"
 
     @staticmethod

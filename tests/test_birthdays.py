@@ -242,6 +242,9 @@ class BirthdayCogTests(unittest.IsolatedAsyncioTestCase):
                 FakeMessage(2, "Alice - 03/14"),
             ],
         )
+        birthday_channel.members[42] = SimpleNamespace(
+            display_name="Server Nickname",
+        )
         general_channel = FakeChannel(general_channel_id)
         cog = FamilyCog(
             FakeBot(
@@ -257,7 +260,7 @@ class BirthdayCogTests(unittest.IsolatedAsyncioTestCase):
 
         self.assertEqual(len(general_channel.sent), 2)
         self.assertIn(
-            "**Birthday Person**",
+            "**Server Nickname**",
             general_channel.sent[0][0],
         )
         self.assertIn("Alice", general_channel.sent[1][0])
@@ -270,8 +273,48 @@ class BirthdayCogTests(unittest.IsolatedAsyncioTestCase):
         ctx = FakeContext()
         with patch.object(family_module.datetime, "datetime", FrozenDateTime):
             await FamilyCog.test_birthdays.callback(cog, ctx)
+        self.assertIn("Server Nickname", ctx.messages[-1][0])
         self.assertIn("Heads up", ctx.messages[-1][0])
         self.assertIn("03/14", ctx.messages[-1][0])
+
+    async def test_list_uses_server_nickname_for_mentioned_members(self):
+        FrozenDateTime.current = (2025, 2, 28, 8, 30)
+        birthday_channel_id = family_module.BIRTHDAY_LIST_CHANNEL_ID
+        general_channel_id = family_module.GENERAL_CHANNEL_ID
+        birthday_channel = FakeChannel(
+            birthday_channel_id,
+            [
+                FakeMessage(
+                    1,
+                    "<@42> - 12/01",
+                    mentions=[SimpleNamespace(id=42, display_name="Global Name")],
+                ),
+            ],
+        )
+        birthday_channel.members[42] = SimpleNamespace(
+            display_name="Server Nickname",
+        )
+        cog = FamilyCog(
+            FakeBot(
+                {
+                    birthday_channel_id: birthday_channel,
+                    general_channel_id: FakeChannel(general_channel_id),
+                }
+            )
+        )
+        ctx = FakeContext()
+
+        with patch.object(family_module.datetime, "datetime", FrozenDateTime):
+            await FamilyCog.list_birthdays.callback(cog, ctx)
+
+        self.assertIn("Server Nickname", ctx.messages[-1][0])
+        self.assertNotIn("Global Name", ctx.messages[-1][0])
+
+    async def test_missing_guild_member_falls_back_to_user_display_name(self):
+        cog = FamilyCog(FakeBot({}))
+        entry = BirthdayEntry(12, 1, "Old Mention Name", user_id=42)
+
+        self.assertEqual(cog._entry_name(entry), "User42")
 
     async def test_two_week_heads_up_observes_february_29(self):
         FrozenDateTime.current = (2025, 2, 14, 8, 30)

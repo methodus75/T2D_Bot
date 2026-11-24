@@ -25,3 +25,4 @@ class T2DBot(commands.Bot):
     async def setup_hook(self):
         await self.load_extension("cogs.fantasy")
         await self.load_extension("cogs.family")
+        await self.load_extension("cogs.general")
