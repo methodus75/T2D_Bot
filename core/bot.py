@@ -9,6 +9,7 @@ class T2DBot(commands.Bot):
     def __init__(self, league: League):
         intents = discord.Intents.default()
         intents.message_content = True
+        intents.members = True
         allowed_mentions = discord.AllowedMentions(
             users=True,
             roles=True,

@@ -60,11 +60,16 @@ class FamilyCog(commands.Cog):
         ]
         return channel, messages, parse_birthday_entries(messages)
 
-    def _entry_name(self, entry, guild=None):
+    async def _entry_name(self, entry, guild=None):
         if entry.user_id is None:
             return entry.name
 
         member = guild.get_member(entry.user_id) if guild else None
+        if member is None and guild is not None:
+            try:
+                member = await guild.fetch_member(entry.user_id)
+            except (discord.NotFound, discord.HTTPException):
+                member = None
         if member is not None:
             return member.display_name
         user = self.bot.get_user(entry.user_id)
@@ -160,14 +165,14 @@ class FamilyCog(commands.Cog):
             if todays_birthdays or upcoming_birthdays:
                 general_channel = await self._get_channel(GENERAL_CHANNEL_ID)
                 for entry in todays_birthdays:
-                    name = self._entry_name(entry, birthday_channel.guild)
+                    name = await self._entry_name(entry, birthday_channel.guild)
                     await general_channel.send(
                         f"🎂 Happy Birthday to **{name}**! "
                         "Wishing you a fantastic day! 🎉",
                         allowed_mentions=discord.AllowedMentions.none(),
                     )
                 for entry in upcoming_birthdays:
-                    name = self._entry_name(entry, birthday_channel.guild)
+                    name = await self._entry_name(entry, birthday_channel.guild)
                     await general_channel.send(
                         f"📅 Heads up! **{name}**'s birthday is coming up in "
                         f"2 weeks ({entry.month:02d}/{entry.day:02d})!",
@@ -277,11 +282,13 @@ class FamilyCog(commands.Cog):
                 await ctx.send("No birthdays are listed yet.")
                 return
 
-            lines = [
-                f"• **{self._entry_name(entry, birthday_channel.guild)}** — "
-                f"{entry.month:02d}/{entry.day:02d}"
-                for _, entry in upcoming
-            ]
+            guild = getattr(ctx, "guild", None) or birthday_channel.guild
+            lines = []
+            for _, entry in upcoming:
+                name = await self._entry_name(entry, guild)
+                lines.append(
+                    f"• **{name}** — {entry.month:02d}/{entry.day:02d}"
+                )
             await ctx.send(
                 "🎂 **Upcoming birthdays**\n" + "\n".join(lines),
                 allowed_mentions=discord.AllowedMentions.none(),
@@ -314,19 +321,20 @@ class FamilyCog(commands.Cog):
                 )
                 return
 
-            messages = [
-                f"🎂 Happy Birthday to "
-                f"**{self._entry_name(entry, birthday_channel.guild)}**! "
-                "Wishing you a fantastic day! 🎉"
-                for entry in todays_birthdays
-            ]
-            messages.extend(
-                f"📅 Heads up! "
-                f"**{self._entry_name(entry, birthday_channel.guild)}**'s "
-                f"birthday is coming up in 2 weeks "
-                f"({entry.month:02d}/{entry.day:02d})!"
-                for entry in upcoming_birthdays
-            )
+            guild = getattr(ctx, "guild", None) or birthday_channel.guild
+            messages = []
+            for entry in todays_birthdays:
+                name = await self._entry_name(entry, guild)
+                messages.append(
+                    f"🎂 Happy Birthday to **{name}**! "
+                    "Wishing you a fantastic day! 🎉"
+                )
+            for entry in upcoming_birthdays:
+                name = await self._entry_name(entry, guild)
+                messages.append(
+                    f"📅 Heads up! **{name}**'s birthday is coming up in "
+                    f"2 weeks ({entry.month:02d}/{entry.day:02d})!"
+                )
             await ctx.send(
                 "Birthday reminder preview:\n" + "\n".join(messages),
                 allowed_mentions=discord.AllowedMentions.none(),

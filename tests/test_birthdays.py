@@ -85,8 +85,17 @@ class FakeChannel:
         self.messages = list(messages)
         self.sent = []
         self.members = {}
-        self.guild = SimpleNamespace(get_member=self.members.get)
+        self.fetch_members = {}
+        self.fetch_member_calls = []
+        self.guild = SimpleNamespace(
+            get_member=self.members.get,
+            fetch_member=self._fetch_member,
+        )
         self.history_limit = None
+
+    async def _fetch_member(self, user_id):
+        self.fetch_member_calls.append(user_id)
+        return self.fetch_members[user_id]
 
     async def history(self, limit=None):
         self.history_limit = limit
@@ -309,12 +318,47 @@ class BirthdayCogTests(unittest.IsolatedAsyncioTestCase):
 
         self.assertIn("Server Nickname", ctx.messages[-1][0])
         self.assertNotIn("Global Name", ctx.messages[-1][0])
+        self.assertEqual(birthday_channel.fetch_member_calls, [])
 
-    async def test_missing_guild_member_falls_back_to_user_display_name(self):
+    async def test_list_fetches_server_member_when_cache_misses(self):
+        FrozenDateTime.current = (2025, 2, 28, 8, 30)
+        birthday_channel_id = family_module.BIRTHDAY_LIST_CHANNEL_ID
+        general_channel_id = family_module.GENERAL_CHANNEL_ID
+        birthday_channel = FakeChannel(
+            birthday_channel_id,
+            [
+                FakeMessage(
+                    1,
+                    "<@42> - 12/01",
+                    mentions=[SimpleNamespace(id=42, display_name="Global Name")],
+                ),
+            ],
+        )
+        birthday_channel.fetch_members[42] = SimpleNamespace(
+            display_name="Fetched Server Nickname",
+        )
+        cog = FamilyCog(
+            FakeBot(
+                {
+                    birthday_channel_id: birthday_channel,
+                    general_channel_id: FakeChannel(general_channel_id),
+                }
+            )
+        )
+        ctx = FakeContext()
+
+        with patch.object(family_module.datetime, "datetime", FrozenDateTime):
+            await FamilyCog.list_birthdays.callback(cog, ctx)
+
+        self.assertIn("Fetched Server Nickname", ctx.messages[-1][0])
+        self.assertNotIn("Global Name", ctx.messages[-1][0])
+        self.assertEqual(birthday_channel.fetch_member_calls, [42])
+
+    async def test_missing_guild_falls_back_to_user_display_name(self):
         cog = FamilyCog(FakeBot({}))
         entry = BirthdayEntry(12, 1, "Old Mention Name", user_id=42)
 
-        self.assertEqual(cog._entry_name(entry), "User42")
+        self.assertEqual(await cog._entry_name(entry), "User42")
 
     async def test_two_week_heads_up_observes_february_29(self):
         FrozenDateTime.current = (2025, 2, 14, 8, 30)
