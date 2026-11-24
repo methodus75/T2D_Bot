@@ -21,3 +21,7 @@ class T2DBot(commands.Bot):
         )
         self.league = league
         self.remove_command("help")
+
+    async def setup_hook(self):
+        await self.load_extension("cogs.fantasy")
+        await self.load_extension("cogs.family")
