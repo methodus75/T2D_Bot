@@ -2,6 +2,7 @@
 
 import calendar
 import datetime
+import random
 import re
 
 import discord
@@ -16,6 +17,20 @@ from services.birthdays import BirthdayEntry, parse_birthday_entries
 
 
 _DATE_INPUT_PATTERN = re.compile(r"^(\d{1,2})[/-](\d{1,2})$")
+
+# Add more direct .gif URLs here to expand the birthday rotation.
+BIRTHDAY_GIFS = [
+    "https://media1.tenor.com/m/zID0voNWZeMAAAAC/the-office-its-your-birthday-period-happy-birthday.gif",
+    "https://media.tenor.com/oh2jVo_lP48AAAAM/steve-carrell-happy-birthday.gif",
+    "https://media.tenor.com/G3H0TWklcv0AAAAM/parks-and-rec-nick-offerman.gif",
+    "https://media.tenor.com/TREaEuasPx4AAAAM/happy-birthday-spongebob.gif",
+    "https://media.tenor.com/0SOQhf25VLsAAAAM/spongebob-squarepants-nickelodeon.gif",
+    "https://media.tenor.com/X185VU8GGAUAAAAM/everybody-dance-now-speaker.gif",
+    "https://media.tenor.com/4U0EMvNU1iQAAAAM/cat-cool.gif",
+    "https://media.tenor.com/dvWMEVj2W60AAAAM/happy-birthday-goats.gif",
+    "https://media.tenor.com/OV_-iVw0048AAAAM/yay-birthday.gif",
+    "https://media.tenor.com/34rn7EldmxIAAAAM/ron-swanson.gif",
+]
 
 
 def _parse_birthday_date(value):
@@ -166,9 +181,10 @@ class FamilyCog(commands.Cog):
                 general_channel = await self._get_channel(GENERAL_CHANNEL_ID)
                 for entry in todays_birthdays:
                     name = await self._entry_name(entry, birthday_channel.guild)
+                    gif_url = random.choice(BIRTHDAY_GIFS)
                     await general_channel.send(
                         f"🎂 Happy Birthday to **{name}**! "
-                        "Wishing you a fantastic day! 🎉",
+                        f"Wishing you a fantastic day! 🎉\n{gif_url}",
                         allowed_mentions=discord.AllowedMentions.none(),
                     )
                 for entry in upcoming_birthdays:
@@ -317,26 +333,40 @@ class FamilyCog(commands.Cog):
             if not todays_birthdays and not upcoming_birthdays:
                 await ctx.send(
                     f"No birthdays found for {now:%B %d} or in 14 days; "
-                    "no reminder would be posted."
+                    "no reminder would be posted.",
+                    allowed_mentions=discord.AllowedMentions.none(),
                 )
-                return
+            else:
+                guild = getattr(ctx, "guild", None) or birthday_channel.guild
+                messages = []
+                for entry in todays_birthdays:
+                    name = await self._entry_name(entry, guild)
+                    messages.append(
+                        f"🎂 Happy Birthday to **{name}**! "
+                        f"Wishing you a fantastic day! 🎉\n"
+                        f"{random.choice(BIRTHDAY_GIFS)}"
+                    )
+                for entry in upcoming_birthdays:
+                    name = await self._entry_name(entry, guild)
+                    messages.append(
+                        f"📅 Heads up! **{name}**'s birthday is coming up in "
+                        f"2 weeks ({entry.month:02d}/{entry.day:02d})!"
+                    )
+                await ctx.send(
+                    "Birthday reminder preview:\n" + "\n".join(messages),
+                    allowed_mentions=discord.AllowedMentions.none(),
+                )
 
-            guild = getattr(ctx, "guild", None) or birthday_channel.guild
-            messages = []
-            for entry in todays_birthdays:
-                name = await self._entry_name(entry, guild)
-                messages.append(
-                    f"🎂 Happy Birthday to **{name}**! "
-                    "Wishing you a fantastic day! 🎉"
-                )
-            for entry in upcoming_birthdays:
-                name = await self._entry_name(entry, guild)
-                messages.append(
-                    f"📅 Heads up! **{name}**'s birthday is coming up in "
-                    f"2 weeks ({entry.month:02d}/{entry.day:02d})!"
-                )
+            sample_gif = random.choice(BIRTHDAY_GIFS)
+            sample_preview = (
+                "[SAMPLE DRY RUN]\n"
+                "🎂 Happy Birthday to **Alex**! "
+                f"Wishing you a fantastic day! 🎉\n{sample_gif}\n"
+                f"📅 Heads up! **Alex**'s birthday is coming up in 2 weeks "
+                f"({two_week_date:%m/%d})!"
+            )
             await ctx.send(
-                "Birthday reminder preview:\n" + "\n".join(messages),
+                sample_preview,
                 allowed_mentions=discord.AllowedMentions.none(),
             )
         except Exception as e:

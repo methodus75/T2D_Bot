@@ -272,6 +272,10 @@ class BirthdayCogTests(unittest.IsolatedAsyncioTestCase):
             "**Server Nickname**",
             general_channel.sent[0][0],
         )
+        self.assertIn(
+            general_channel.sent[0][0].splitlines()[-1],
+            family_module.BIRTHDAY_GIFS,
+        )
         self.assertIn("Alice", general_channel.sent[1][0])
         self.assertIn("03/14", general_channel.sent[1][0])
         self.assertEqual(
@@ -280,11 +284,50 @@ class BirthdayCogTests(unittest.IsolatedAsyncioTestCase):
         )
 
         ctx = FakeContext()
-        with patch.object(family_module.datetime, "datetime", FrozenDateTime):
+        sample_gif = family_module.BIRTHDAY_GIFS[0]
+        with (
+            patch.object(family_module.datetime, "datetime", FrozenDateTime),
+            patch.object(family_module.random, "choice", return_value=sample_gif),
+        ):
             await FamilyCog.test_birthdays.callback(cog, ctx)
-        self.assertIn("Server Nickname", ctx.messages[-1][0])
-        self.assertIn("Heads up", ctx.messages[-1][0])
-        self.assertIn("03/14", ctx.messages[-1][0])
+        real_preview = ctx.messages[-2][0]
+        sample_preview = ctx.messages[-1][0]
+        self.assertIn("Server Nickname", real_preview)
+        self.assertIn("Heads up", real_preview)
+        self.assertIn("03/14", real_preview)
+        self.assertIn(sample_gif, real_preview)
+        self.assertIn("[SAMPLE DRY RUN]", sample_preview)
+        self.assertIn(sample_gif, sample_preview)
+        self.assertIn("**Alex**", sample_preview)
+
+    async def test_test_always_includes_dry_run_when_no_birthdays_match(self):
+        FrozenDateTime.current = (2025, 2, 28, 8, 30)
+        birthday_channel_id = family_module.BIRTHDAY_LIST_CHANNEL_ID
+        general_channel_id = family_module.GENERAL_CHANNEL_ID
+        birthday_channel = FakeChannel(birthday_channel_id)
+        cog = FamilyCog(
+            FakeBot(
+                {
+                    birthday_channel_id: birthday_channel,
+                    general_channel_id: FakeChannel(general_channel_id),
+                }
+            )
+        )
+        ctx = FakeContext()
+        sample_gif = family_module.BIRTHDAY_GIFS[0]
+
+        with (
+            patch.object(family_module.datetime, "datetime", FrozenDateTime),
+            patch.object(family_module.random, "choice", return_value=sample_gif),
+        ):
+            await FamilyCog.test_birthdays.callback(cog, ctx)
+
+        self.assertIn("No birthdays found", ctx.messages[0][0])
+        sample_preview = ctx.messages[-1][0]
+        self.assertIn("[SAMPLE DRY RUN]", sample_preview)
+        self.assertIn("Happy Birthday to **Alex**", sample_preview)
+        self.assertIn(sample_gif, sample_preview)
+        self.assertIn("Heads up! **Alex**", sample_preview)
 
     async def test_list_uses_server_nickname_for_mentioned_members(self):
         FrozenDateTime.current = (2025, 2, 28, 8, 30)
