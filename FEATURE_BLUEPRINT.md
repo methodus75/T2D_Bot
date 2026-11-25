@@ -1,116 +1,148 @@
-# Family Discord Bot — Feature Blueprint
+# T2D Discord Bot — Product & Feature Blueprint
 
-This is a loose planning document, not a schedule or commitment. Ideas can be
-added, changed, or dropped as the family server grows.
+This is a living project brief for understanding the bot and shaping future
+work. The current-state section describes implemented behavior; future ideas
+are exploratory, not commitments or a delivery schedule.
 
-## Purpose
+## Product summary
 
-The bot currently serves the ESPN fantasy football league. Longer term, it may
-also help the family Discord with useful, low-maintenance activities and
-coordination for parents, grandparents, and teens.
+The bot currently supports an ESPN fantasy football league and a family
+Discord server. It provides league information, scheduled recaps, and opt-in
+birthday reminders. Future work should address a real recurring need without
+making the bot harder to operate or maintain.
 
-The goal is a friendly family utility bot, not a collection of features for
-their own sake.
+## Current implementation
 
-## What exists today
+### Runtime and configuration
 
-- Python Discord bot using `discord.py`, connected to an ESPN fantasy football
-  league.
-- General help (`!help`) lists family commands and points league members to
-  `!fantasyhelp` (also available as `!espnhelp`) for
-  `!standings`, `!matchups`, `!waivers`, and `!seasonawards [week]`.
-- Other commands: `!testrecap` and admin-only `!forcerecap`.
-- Automated weekly recap scheduled for Tuesday at 8:00 AM America/New_York.
-- Opt-in birthday reminders at 8:30 AM America/New_York, using the static
-  `#birthdays` channel as the source of truth; members can use `!bday` commands
-  to manage and preview entries. Birthday names use server nicknames when the
-  member is available in the server.
-- Hosted on an Oracle Cloud Ubuntu server as the `t2dbot` systemd service.
-- Credentials are provided through a server-side environment file and should
-  never be committed to GitHub.
+- Python application built with `discord.py`; `bot.py` starts the client.
+- The client uses the `!` command prefix and loads the `fantasy`, `family`, and
+  `general` cogs.
+- Shared settings live in `core/config.py`. The bot requests Discord's
+  `message_content` and `members` intents; the corresponding privileged intents
+  must also be enabled in the Discord Developer Portal.
+- Discord and ESPN credentials are read from `DISCORD_TOKEN`, `ESPN_S2`, and
+  `SWID` environment variables. Never put credential values in this document
+  or commit them to GitHub.
+- Birthday entries are stored in the configured Discord `#birthdays` channel;
+  there is no separate birthday database.
 
-## Family server context
+### Family and general commands
 
-- The server is for family members across generations, including teens.
-- There are static text channels for birthday reminders.
-- There is a thread channel for birthday and holiday wishlists.
-- Future fantasy leagues may use polls for group decisions.
-- Most features should be available to members, with role-based access where it
-  makes sense. The server owner should retain full administrative control.
+- `!help` lists `!bday setme <MM/DD>`, `!bday removeme`, and `!bday list`, and
+  points league members to `!fantasyhelp`.
+- `!bday setme <MM/DD>` opts a member in or updates their entry.
+- `!bday removeme` removes a member's entry; `!bday list` shows upcoming
+  birthdays; `!bday test` previews real matches and a sample dry run.
+- Entries retain a month and day, not a birth year. User mentions are used for
+  member entries; plain-text names are also supported.
+- Birthday reminders run at 8:30 AM America/New_York. The bot posts a
+  celebration on the birthday and a 14-day heads-up. February 29 birthdays
+  are observed on February 28 in non-leap years.
+- Birthday messages resolve server members to `display_name` from the guild
+  cache or by fetching the member. Day-of celebrations include a randomly
+  selected, hot-linked Tenor GIF from the `BIRTHDAY_GIFS` list in
+  `cogs/family.py`. If the guild member cannot be resolved, the name falls
+  back to a cached user display name or stored name.
+- `!bday test` shows matching real entries (or a no-match note) and separately
+  sends a `[SAMPLE DRY RUN]` celebration and 14-day heads-up with a GIF.
+
+### ESPN Fantasy Football commands
+
+- `!fantasyhelp` (alias `!espnhelp`) lists the fantasy commands.
+- `!standings` shows current league standings.
+- `!matchups` shows the current week's matchups and scores.
+- `!waivers` lists up to ten available free agents.
+- `!seasonawards [week]` calculates seasonal awards through a completed week,
+  up to Week 14.
+- Automated recaps are scheduled for Tuesday at 8:00 AM America/New_York,
+  mention the configured recap role, and stop after the Week 14 championship.
+- `!testrecap [week]` previews a recap. Admin-only `!forcerecap` posts a recap
+  to the configured channel.
+- ESPN configuration currently sets league year 2026. Recap-week calculation
+  is anchored to September 15, 2026, and the awards output labels the season
+  as 2026. Future seasons will need this year-specific logic reviewed and
+  updated.
+
+### Project structure
+
+- `cogs/` contains Discord commands and scheduled tasks.
+- `services/` contains ESPN integration, birthday parsing, and reusable
+  fantasy calculations.
+- `core/` contains bot setup and shared configuration.
+- `tests/` contains unit tests for birthday behavior and help output.
+
+## Operating notes to confirm
+
+These are project/deployment assumptions, not facts enforced by the code. Check
+them before planning work that depends on them.
+
+- Earlier project notes describe deployment on Oracle Cloud Ubuntu as a
+  `t2dbot` systemd service. Confirm the host and deployment process are still
+  current before changing or documenting release steps.
+- Earlier server notes mention family members across generations, a wishlist
+  thread, and static reminder channels. The bot currently manages birthdays
+  and fantasy features; it does not manage wishlists.
+- Discord channel and role IDs are configured in code. Keep them out of
+  feature-specific logic where shared configuration already exists.
 
 ## Design principles
 
-- Prefer Discord's built-in events, polls, threads, and permissions when they
-  already meet the need.
-- Keep routine member features easy to discover and use.
-- Restrict configuration, moderation, and other administrative actions to the
-  owner or trusted roles.
-- Minimize stored family information. For example, avoid storing birth years
-  when a month and day would suffice, and only automate personal reminders
-  with the family's agreement.
-- Keep wishlist contents in Discord rather than copying them to an external
-  service or database unless there is a clear reason.
-- Avoid unnecessary external services and dependencies to keep hosting and
-  maintenance simple.
-- Be deliberate with user, role, and everyone mentions to prevent accidental
-  pings.
-- Add features when they solve a real recurring need; no deadlines are set.
+- Solve a specific recurring need; prefer a Discord-native feature when it
+  meets the need with less custom state or maintenance.
+- Keep routine member commands easy to discover. Keep administrative actions
+  limited to appropriate permissions.
+- Minimize personal data and retention. For birthdays, month and day are
+  sufficient; do not add birth years without a clear, agreed need.
+- Be deliberate with user, role, and everyone mentions. Avoid unintended
+  pings, especially in scheduled messages.
+- Make failures understandable and consider how an admin can recover.
+- Minimize external services, dependencies, and privileged permissions.
 
-## Possible future ideas
+## Ideas to explore
 
-These are exploratory ideas, not a committed roadmap.
+These are prompts for discussion, not a roadmap:
 
-- **Holiday reminders:** Automate reminders based on existing Discord content,
-  with a privacy-conscious source of dates.
-- **Wishlist helper:** Create a consistently formatted wishlist thread or
-  provide a simple template, while leaving the wishlist content in Discord.
-- **Fantasy league polls:** Help create or manage polls for future league
-  decisions; first consider whether Discord's built-in polls are sufficient.
-- **Family events and RSVPs:** Use Discord scheduled events or a lightweight
-  RSVP flow for gatherings.
-- **Trivia and games:** Offer optional, family-friendly activities.
-- **Announcements:** Make it easier for authorized family members to post
-  important updates without giving the bot broad permission to ping everyone.
-- **Household or family coordination:** Consider only if a specific recurring
-  task would benefit from automation.
+- **Holiday reminders:** What should be the trusted date source, and who can
+  add or change dates?
+- **Wishlist helper:** Would a thread template or setup command help while
+  keeping wishlist contents in Discord?
+- **Family events and RSVPs:** Are Discord scheduled events sufficient, or is
+  a lightweight bot workflow actually needed?
+- **Fantasy league decisions:** Would polls help, or are Discord's built-in
+  polls enough?
+- **Trivia and games:** What optional, family-friendly activity would people
+  actually use?
+- **Announcements:** Is there a recurring announcement task that needs
+  assistance, and what permissions would it require?
 
-## How to evaluate an idea
+## How to shape the next feature
 
-Before implementing a feature, capture:
+Before implementation or deeper theory-crafting, establish:
 
-1. What people do manually today, and what is frustrating about it.
-2. Who should be able to use it and who should configure it.
-3. What the bot needs to store, for how long, and whether Discord already
-   stores the information.
-4. Whether a native Discord feature solves the problem with less maintenance.
-5. Whether the feature needs an external service, additional permissions, or
-   ongoing moderation.
-6. How to test it and what to do if it fails.
+1. The current manual process or problem, and who experiences it.
+2. The smallest useful outcome and how members will discover it.
+3. Who may use, configure, and administer it.
+4. The source of truth, data collected, and retention needs.
+5. Whether Discord already provides the necessary feature.
+6. Required external services, privileged intents, permissions, and hosting
+   changes.
+7. Failure behavior, recovery steps, and focused tests.
+8. Whether the idea is ready to implement, needs more discussion, or should be
+   parked.
 
-## Possible organization as the bot grows
-
-`bot.py` is the application entry point. Shared bot setup and configuration
-live in `core/`, ESPN integration and reusable fantasy calculations live in
-`services/`, and the current fantasy commands and Tuesday recap live in
-`cogs/fantasy.py`. Keep future distinct features in separate Discord.py
-extensions or cogs (for example, family events, polls, and games) so one
-feature stays easy to change without entangling the others.
-
-A separate bot may be preferable if a future feature needs substantially
-different permissions, data handling, or reliability requirements.
-
-## Idea notes template
-
-Copy this for a new proposal:
+## Feature proposal template
 
 ### Feature idea
 
-- **Problem or current manual process:**
-- **Who would use it:**
-- **Who can manage it:**
-- **What the bot would do:**
-- **Information stored and retention:**
-- **Could Discord handle this natively?**
-- **External services or extra permissions:**
-- **Maintenance and failure considerations:**
-- **Status:** Idea / Exploring / Selected / Built / Dropped
+- **Problem / current process:**
+- **Who benefits:**
+- **Smallest useful behavior:**
+- **Who can use or manage it:**
+- **Source of truth and data retention:**
+- **Could Discord handle it natively?**
+- **External services, intents, or permissions:**
+- **Failure and recovery plan:**
+- **Test and validation plan:**
+- **Open questions:**
+- **Status:** Idea / Exploring / Selected / Implemented / Parked / Dropped
